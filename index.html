@@ -21,7 +21,7 @@
 
         #app-content { display: none; }
         header { background-color: var(--cd-blue); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 5px solid var(--cd-light-blue); }
-        .container { max-width: 1300px; margin: 20px auto; padding: 20px; }
+        .container { max-width: 1400px; margin: 20px auto; padding: 20px; }
         .panel { background: white; border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         
         .flex-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -99,10 +99,14 @@
             <div class="panel">
                 <h3 style="margin-top: 0; color: var(--cd-blue);">Historie a vyhledávání</h3>
                 <div class="flex-row">
-                    <input type="text" id="hledat-text" placeholder="Hledat slovo (např. osvětlení, EDB...)" onkeyup="vykresli()">
+                    <input type="text" id="hledat-text" placeholder="Hledat (slovo, číslo...)" onkeyup="vykresli()">
                     
+                    <select id="hledat-rada" onchange="vykresli()">
+                        <option value="">Všechny řady (např. 844)</option>
+                    </select>
+
                     <select id="hledat-vozidlo" onchange="vykresli()">
-                        <option value="">Všechna vozidla</option>
+                        <option value="">Všechna konkrétní vozidla</option>
                     </select>
 
                     <select id="hledat-stav" onchange="vykresli()">
@@ -116,13 +120,13 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Datum</th>
-                            <th>Vozidlo</th>
+                            <th style="width: 100px;">Datum</th>
+                            <th style="width: 100px;">Vozidlo</th>
                             <th>Závada</th>
                             <th>Poznámka</th>
-                            <th>Stav</th>
-                            <th>Zapsal</th>
-                            <th>Akce</th>
+                            <th style="width: 120px;">Stav</th>
+                            <th style="width: 120px;">Zapsal</th>
+                            <th style="width: 90px;">Akce</th>
                         </tr>
                     </thead>
                     <tbody id="tabulka-dat"></tbody>
@@ -167,31 +171,34 @@
             let zmeneno = false;
             
             data.forEach(z => {
-                // Oprava názvu 814_914 na 814
+                // Oprava názvu 814_914 na čisté 814
                 if (z.vozidlo && z.vozidlo.includes('814_914')) {
                     z.vozidlo = z.vozidlo.replace(/814_914[_ ]*/g, '814 ').replace(/\s+/g, ' ').trim();
                     zmeneno = true;
                 }
                 
-                // Oprava Excel datumů (číselných např. 45110)
-                if (z.datum && !isNaN(Number(z.datum)) && Number(z.datum) > 10000) {
-                    let cislo = Number(z.datum);
-                    let d = new Date(Math.round((cislo - 25569) * 86400 * 1000));
-                    z.datum = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                    zmeneno = true;
-                }
-                
-                // Záchrana pro staré textové datumy (DD.MM.YYYY -> YYYY-MM-DD)
-                if (z.datum && typeof z.datum === 'string' && z.datum.includes('.')) {
-                    let dily = z.datum.split('.');
-                    if(dily.length >= 3) {
-                       let den = dily[0].trim().padStart(2, '0');
-                       let mesic = dily[1].trim().padStart(2, '0');
-                       let rok = dily[2].trim().substring(0,4);
-                       if (rok.length === 4) {
-                           z.datum = `${rok}-${mesic}-${den}`;
-                           zmeneno = true;
-                       }
+                // Převod všech datumů do YYYY-MM-DD pro bezchybné řazení
+                if (z.datum) {
+                    let stareDatum = z.datum;
+                    
+                    if (!isNaN(Number(stareDatum)) && Number(stareDatum) > 10000) {
+                        // Excel číslo
+                        let d = new Date(Math.round((Number(stareDatum) - 25569) * 86400 * 1000));
+                        z.datum = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                        zmeneno = true;
+                    } 
+                    else if (typeof stareDatum === 'string' && stareDatum.includes('.')) {
+                        // Formát DD.MM.YYYY
+                        let dily = stareDatum.split('.');
+                        if(dily.length >= 3) {
+                           let den = dily[0].trim().padStart(2, '0');
+                           let mesic = dily[1].trim().padStart(2, '0');
+                           let rok = dily[2].trim().substring(0,4);
+                           if (rok.length === 4) {
+                               z.datum = `${rok}-${mesic}-${den}`;
+                               zmeneno = true;
+                           }
+                        }
                     }
                 }
             });
@@ -212,7 +219,7 @@
                         let rozdilDni = (dnesniDatum - datumZaznamu) / (1000 * 60 * 60 * 24);
                         if (rozdilDni >= 30) {
                             z.stav = 'Vyřešeno';
-                            let zprava = "[Automaticky vyřešeno po měsíci]";
+                            let zprava = "[Automat. vyřešeno > 30 dní]";
                             z.poznamka = z.poznamka ? z.poznamka + " | " + zprava : zprava;
                             zmeneno = true;
                         }
@@ -231,10 +238,10 @@
                 document.getElementById('jmeno-ukazatel').innerText = "👤 " + uzivatel;
                 document.getElementById('novy-datum').valueAsDate = new Date();
                 
-                opravitHistorickaData(); // Okamžitá oprava paměti!
+                opravitHistorickaData(); 
                 zkontrolujStareZavady(); 
                 skrytImportPokudJsouData();
-                obnovFiltrVozidel();
+                obnovFiltry();
                 vykresli();
             }
         }
@@ -275,9 +282,9 @@
             vozidlo = vozidlo.replace(/814_914[_ ]*/g, '814 ').replace(/\s+/g, ' ').trim();
 
             let data = ziskejData();
-            data.unshift({
+            data.unshift({ // Ukládá nová data nakonec, ale o reálné zobrazení se stará řazení ve vykresli()
                 id: Date.now(),
-                datum: datum,
+                datum: datum, // Z formuláře jde už v YYYY-MM-DD
                 vozidlo: vozidlo,
                 zavada: zavada,
                 poznamka: poznamka,
@@ -291,7 +298,7 @@
             document.getElementById('novy-zavada').value = '';
             document.getElementById('novy-poznamka').value = '';
             
-            obnovFiltrVozidel();
+            obnovFiltry();
             vykresli();
         }
 
@@ -334,7 +341,7 @@
             }
         }
 
-        // --- IMPORT Z EXCELU S NATIVNÍ PODPOROU DATUMU ---
+        // --- IMPORT Z EXCELU ---
         function nahratExcel() {
             let fileInput = document.getElementById('excel-file');
             if(!fileInput.files.length) { alert("Nejdřív vyber ten Excel soubor!"); return; }
@@ -342,14 +349,12 @@
             let reader = new FileReader();
             reader.onload = function(e) {
                 let dataArray = new Uint8Array(e.target.result);
-                // "cellDates: true" zajistí, že SheetJS přečte Excel datum jako JavaScript Datum
                 let workbook = XLSX.read(dataArray, {type: 'array', cellDates: true});
                 let novaData = [];
                 
                 workbook.SheetNames.forEach(sheetName => {
                     if(sheetName === 'List1' || sheetName === 'Poznámky' || sheetName === 'vzor') return;
                     let ws = workbook.Sheets[sheetName];
-                    // "raw: true" vytáhne přímé objekty místo pomíchaného textu
                     let jsonData = XLSX.utils.sheet_to_json(ws, {raw: true}); 
                     
                     // Okamžité přepsání názvu vozidla z 814_914 na 814
@@ -361,13 +366,22 @@
                         let p = (row['POZNÁMKY'] || "").toString().trim();
 
                         let dFinal = "";
+                        // Striktní vytahování datumu z tabulky s převodem na interní YYYY-MM-DD
                         if (dRaw instanceof Date) {
                             let rok = dRaw.getFullYear();
                             let mesic = String(dRaw.getMonth() + 1).padStart(2, '0');
                             let den = String(dRaw.getDate()).padStart(2, '0');
                             dFinal = `${rok}-${mesic}-${den}`;
                         } else if (dRaw) {
-                            dFinal = String(dRaw).trim();
+                            let dString = String(dRaw).trim();
+                            if(dString.includes('.')) {
+                                let dily = dString.split('.');
+                                if(dily.length >= 3) {
+                                    dFinal = `${dily[2].substring(0,4)}-${dily[1].padStart(2,'0')}-${dily[0].padStart(2,'0')}`;
+                                }
+                            } else {
+                                dFinal = dString; // Pokud je to už YYYY-MM-DD textem
+                            }
                         }
 
                         if(z !== "" || dFinal !== "") {
@@ -389,48 +403,83 @@
                 
                 alert("Paráda! Nahráno " + novaData.length + " záznamů.");
                 skrytImportPokudJsouData();
-                obnovFiltrVozidel();
+                obnovFiltry();
                 vykresli();
             };
             reader.readAsArrayBuffer(fileInput.files[0]);
         }
 
         // --- VYKRESLOVÁNÍ A FILTRY ---
-        function obnovFiltrVozidel() {
+        function obnovFiltry() {
             let data = ziskejData();
-            let unikatni = new Set();
-            data.forEach(z => { if(z.vozidlo) unikatni.add(z.vozidlo); });
-            
-            let pole = Array.from(unikatni).sort();
-            let filtr = document.getElementById('hledat-vozidlo');
-            let datalist = document.getElementById('seznam-vozidel');
-            
-            filtr.innerHTML = '<option value="">Všechna vozidla</option>';
-            datalist.innerHTML = '';
+            let unikatniVozidla = new Set();
+            let unikatniRady = new Set();
 
-            pole.forEach(v => {
-                let opt1 = document.createElement('option'); opt1.value = v; opt1.text = v; filtr.appendChild(opt1);
-                let opt2 = document.createElement('option'); opt2.value = v; datalist.appendChild(opt2);
+            data.forEach(z => { 
+                if(z.vozidlo) {
+                    unikatniVozidla.add(z.vozidlo); 
+                    // Vyzobnutí první části názvu jako "Řada" (např. z "844 020" udělá "844")
+                    unikatniRady.add(z.vozidlo.split(' ')[0]);
+                }
             });
+            
+            // Filtr vozidel
+            let poleVozidel = Array.from(unikatniVozidla).sort();
+            let filtrVozidel = document.getElementById('hledat-vozidlo');
+            let datalist = document.getElementById('seznam-vozidel');
+            filtrVozidel.innerHTML = '<option value="">Všechna konkrétní vozidla</option>';
+            datalist.innerHTML = '';
+            poleVozidel.forEach(v => {
+                filtrVozidel.appendChild(new Option(v, v));
+                let opt = document.createElement('option'); opt.value = v; datalist.appendChild(opt);
+            });
+
+            // Filtr řad
+            let poleRad = Array.from(unikatniRady).sort();
+            let filtrRad = document.getElementById('hledat-rada');
+            filtrRad.innerHTML = '<option value="">Všechny řady (např. 844)</option>';
+            poleRad.forEach(r => {
+                filtrRad.appendChild(new Option("Řada " + r, r));
+            });
+        }
+
+        function formatujDatumHezky(datumYYYYMMDD) {
+            if(!datumYYYYMMDD) return "";
+            let dObj = new Date(datumYYYYMMDD);
+            if(isNaN(dObj)) return datumYYYYMMDD;
+            // Výsledek bude krásné české datum např. "3. 7. 2023"
+            return dObj.toLocaleDateString('cs-CZ');
         }
 
         function vykresli() {
             let text = document.getElementById('hledat-text').value.toLowerCase();
-            let vozidlo = document.getElementById('hledat-vozidlo').value;
+            let hledanaRada = document.getElementById('hledat-rada').value;
+            let hledaneVozidlo = document.getElementById('hledat-vozidlo').value;
             let stav = document.getElementById('hledat-stav').value;
             
             let data = ziskejData();
+            
+            // ŘAZENÍ: Vždy od nejnovějšího datumu (nahoře) po nejstarší
+            data.sort((a, b) => {
+                let dateA = a.datum ? new Date(a.datum).getTime() : 0;
+                let dateB = b.datum ? new Date(b.datum).getTime() : 0;
+                return dateB - dateA;
+            });
+
             let tbody = document.getElementById('tabulka-dat');
             tbody.innerHTML = '';
 
             data.forEach(z => {
+                let radaZaznamu = z.vozidlo ? z.vozidlo.split(' ')[0] : "";
+                
                 let splnujeText = (z.zavada && z.zavada.toLowerCase().includes(text)) || 
                                   (z.poznamka && z.poznamka.toLowerCase().includes(text)) ||
                                   (z.autor && z.autor.toLowerCase().includes(text));
-                let splnujeVozidlo = (vozidlo === "" || z.vozidlo === vozidlo);
+                let splnujeRadu = (hledanaRada === "" || radaZaznamu === hledanaRada);
+                let splnujeVozidlo = (hledaneVozidlo === "" || z.vozidlo === hledaneVozidlo);
                 let splnujeStav = (stav === "" || z.stav === stav);
 
-                if (splnujeText && splnujeVozidlo && splnujeStav) {
+                if (splnujeText && splnujeRadu && splnujeVozidlo && splnujeStav) {
                     let tr = document.createElement('tr');
                     
                     let stavBadge = "";
@@ -439,7 +488,7 @@
                     else stavBadge = '<span class="badge-vyreseno">Vyřešeno</span>';
 
                     tr.innerHTML = `
-                        <td style="white-space: nowrap;">${z.datum || ""}</td>
+                        <td style="white-space: nowrap;">${formatujDatumHezky(z.datum)}</td>
                         <td><b>${z.vozidlo}</b></td>
                         <td>${z.zavada}</td>
                         <td>${z.poznamka}</td>
