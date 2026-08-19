@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Předávka | Elektronici</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 0; }
+        header { background-color: #004b87; color: white; padding: 20px; text-align: center; border-bottom: 5px solid #009fe3; }
+        .container { max-width: 800px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background-color: #009fe3; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #004b87; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Deník Elektroniků</h1>
+        <p>Digitální předávka závad a oprav</p>
+    </header>
+    <div class="container">
+        <h3>Přidat nový záznam</h3>
+        <input type="date" id="datum">
+        <select id="vozidlo">
+            <option value="">Vyberte číslo vozidla...</option>
+            <option value="844_020">844 020</option>
+            <option value="814_002">814_914 002</option>
+            <!-- Zde přidáme další vozidla -->
+        </select>
+        <input type="text" id="zavada" placeholder="Popis závady...">
+        <input type="text" id="poznamka" placeholder="Poznámky...">
+        <button onclick="alert('Zde se následně napojí odesílání na Google Disk!')">Uložit záznam do tabulky</button>
+
+        <hr>
+        <h3>Vyhledávání v historii</h3>
+        <input type="text" placeholder="Hledat podle mašiny, nebo závady...">
+    </div>
+</body>
+</html>
