@@ -36,20 +36,25 @@
         .badge-dily { background-color: #ffc107; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; color: black; }
         .badge-vyreseno { background-color: #28a745; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
         
-        .import-box { background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 5px solid #6c757d; display: none; } /* Defaultně skryté */
+        .import-box { background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 5px solid #6c757d; display: none; }
         
         #edit-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; }
         .edit-box { background: white; padding: 25px; border-radius: 8px; width: 400px; max-width: 90%; }
         .edit-box label { font-weight: bold; font-size: 14px; margin-top: 10px; display: block; }
         .edit-box select, .edit-box input { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         
-        #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 3000; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; color: var(--cd-blue); }
+        #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 3000; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; color: var(--cd-blue); flex-direction: column;}
     </style>
 </head>
 <body>
 
-    <div id="loading-overlay">⏳ Komunikuji s Google Databází...</div>
+    <!-- Indikátor komunikace s Googlem -->
+    <div id="loading-overlay">
+        <div>⏳ Komunikuji s Google Databází...</div>
+        <div style="font-size: 14px; font-weight: normal; margin-top: 10px;">(Při prvním spuštění nebo importu to může trvat pár vteřin)</div>
+    </div>
 
+    <!-- Přihlášení -->
     <div id="login-screen">
         <div class="login-box">
             <h2 style="color: var(--cd-blue); margin-top: 0;">Předávka směn</h2>
@@ -59,6 +64,7 @@
         </div>
     </div>
 
+    <!-- Hlavní Aplikace -->
     <div id="app-content">
         <header>
             <h2 style="margin: 0;">Elektronici ČD</h2>
@@ -69,13 +75,15 @@
         </header>
 
         <div class="container">
+            <!-- Nástroj pro nahrání Excelu -->
             <div class="import-box" id="import-sekce">
                 <h4 style="margin-top: 0;">🔧 Jednorázový import starých záznamů (z Excelu)</h4>
-                <p style="font-size: 14px; color: #555;">Tato tabulka na Google Disku je prázdná. Vyberte Excel soubor, aplikace ho přelouská a nahraje trvale do cloudu.</p>
+                <p style="font-size: 14px; color: #555;">Databáze je prázdná. Vyberte soubor <b>test PŘEDÁVKA ELEKTRONICI.xlsx</b> a nahrajte ho na cloud.</p>
                 <input type="file" id="excel-file" accept=".xlsx, .xls" style="margin-bottom: 10px;">
-                <button class="btn btn-small" style="background: var(--cd-blue); color: white;" onclick="nahratExcel()">Načíst historii na server</button>
+                <button class="btn btn-small" style="background: var(--cd-blue); color: white;" onclick="nahratExcel()">Načíst a odeslat na server</button>
             </div>
 
+            <!-- Přidání záznamu -->
             <div class="panel">
                 <h3 style="margin-top: 0; color: var(--cd-blue);">Napsat nový zápis</h3>
                 <div class="flex-row">
@@ -91,9 +99,10 @@
                     <input type="text" id="novy-zavada" placeholder="Stručný popis závady" style="flex: 2;">
                     <input type="text" id="novy-poznamka" placeholder="Doplňující poznámka (volitelné)" style="flex: 2;">
                 </div>
-                <button class="btn btn-success" style="width: 200px;" onclick="ulozitZapis()">+ Uložit zápis do cloudu</button>
+                <button class="btn btn-success" style="width: 200px;" onclick="ulozitZapis()">+ Odeslat na cloud</button>
             </div>
 
+            <!-- Vyhledávání a filtrace -->
             <div class="panel">
                 <h3 style="margin-top: 0; color: var(--cd-blue);">Historie z Google Tabulky</h3>
                 <div class="flex-row">
@@ -125,6 +134,7 @@
         </div>
     </div>
 
+    <!-- Modal pro úpravu záznamu -->
     <div id="edit-modal">
         <div class="edit-box">
             <h3 style="margin-top: 0; color: var(--cd-blue);">Upravit záznam v cloudu</h3>
@@ -147,49 +157,61 @@
     <datalist id="seznam-vozidel"></datalist>
 
     <script>
-        // === SEM VLOŽ SVOU URL Z KROKU 2 ===
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwd80k5-QkmUU2Pblzq1HQK_JaH8orvLabyt0A4j42UCnqOpSNNAqpFadqfXC5gJAJG/exec"; 
-        
-        let globalniData = []; // Zde si držíme data z Google Tabulky
+        // =========================================================
+        // ZDE VLOŽ SVOU NOVOU WEB URL Z GOOGLE APPS SCRIPTU:
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyY6lwto2YjBP_vMv3SdVshTOZeYjmL2kUmB5WV1feApdMbHtP26zk_qyhSR2AaAw6E/exec"; 
+        // =========================================================
+
+        let globalniData = []; // Všechna data se tahají POUZE z cloudu, žádná paměť prohlížeče!
 
         function ukazNacitani(zobrazit) {
             document.getElementById('loading-overlay').style.display = zobrazit ? 'flex' : 'none';
         }
 
+        // --- STAHOVÁNÍ DAT Z GOOGLE TABULKY ---
         async function stahniDataZGoogle() {
             ukazNacitani(true);
             try {
                 let odpoved = await fetch(SCRIPT_URL);
+                if (!odpoved.ok) throw new Error("Chyba sítě");
+                
                 globalniData = await odpoved.json();
                 
-                // Pokud je tabulka prázdná, ukážeme import, jinak ho skryjeme
-                document.getElementById('import-sekce').style.display = (globalniData.length === 0) ? 'block' : 'none';
+                // Pokud je tabulka prázdná nebo vrátí chybu z Google Scriptu, ukážeme import
+                if (globalniData.length === 0 || globalniData.error) {
+                    document.getElementById('import-sekce').style.display = 'block';
+                    globalniData = [];
+                } else {
+                    document.getElementById('import-sekce').style.display = 'none';
+                }
                 
                 obnovFiltry();
                 vykresli();
             } catch (error) {
-                console.error("Chyba při stahování dat:", error);
-                alert("Nepodařilo se připojit k Google Databázi. Zkontroluj URL odkaz v kódu.");
+                console.error("Chyba:", error);
+                alert("Nepodařilo se připojit k tabulce. Zkontroluj SCRIPT_URL nebo přístupová práva.");
             }
             ukazNacitani(false);
         }
 
+        // --- ODESÍLÁNÍ DAT DO GOOGLE TABULKY ---
         async function odesliNaGoogle(payload) {
             ukazNacitani(true);
             try {
                 await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Zabrání chybám prohlížeče (CORS)
                     body: JSON.stringify(payload)
                 });
-                await stahniDataZGoogle(); // Hned si stáhneme čerstvá data
+                // Po úspěšném odeslání si hned stáhneme aktuální verzi z tabulky
+                await stahniDataZGoogle(); 
             } catch (error) {
-                console.error("Chyba při odesílání:", error);
-                alert("Data se nepodařilo odeslat do cloudu.");
+                console.error("Chyba při ukládání:", error);
+                alert("Chyba: Data se nepodařilo odeslat. Zkontroluj internet.");
                 ukazNacitani(false);
             }
         }
 
+        // --- PŘIHLÁŠENÍ ---
         function overPrihlaseni() {
             let uzivatel = localStorage.getItem('aktualniUzivatel');
             if(uzivatel) {
@@ -197,7 +219,8 @@
                 document.getElementById('app-content').style.display = 'block';
                 document.getElementById('jmeno-ukazatel').innerText = "👤 " + uzivatel;
                 document.getElementById('novy-datum').valueAsDate = new Date();
-                stahniDataZGoogle(); 
+                
+                stahniDataZGoogle(); // Natahá data ze serveru
             }
         }
         
@@ -215,6 +238,7 @@
             document.getElementById('app-content').style.display = 'none';
         }
 
+        // --- NOVÝ ZÁPIS ---
         function ulozitZapis() {
             let datum = document.getElementById('novy-datum').value;
             let vozidlo = document.getElementById('novy-vozidlo').value.trim();
@@ -241,6 +265,7 @@
             odesliNaGoogle(payload);
         }
 
+        // --- ÚPRAVA EXISTUJÍCÍHO ZÁPISU ---
         function otevriUpravu(id) {
             let zaznam = globalniData.find(z => z.id == id);
             if(zaznam) {
@@ -276,6 +301,7 @@
             }
         }
 
+        // --- IMPORT EXCELU DO CLOUDU ---
         function nahratExcel() {
             let fileInput = document.getElementById('excel-file');
             if(!fileInput.files.length) { alert("Nejdřív vyber ten Excel soubor!"); return; }
@@ -305,7 +331,9 @@
                             if(dString.includes('.')) {
                                 let dily = dString.split('.');
                                 if(dily.length >= 3) dFinal = `${dily[2].substring(0,4)}-${dily[1].padStart(2,'0')}-${dily[0].padStart(2,'0')}`;
-                            } else dFinal = dString;
+                            } else {
+                                dFinal = dString;
+                            }
                         }
 
                         if(z !== "" || dFinal !== "") {
@@ -317,11 +345,13 @@
                     });
                 });
                 
+                // Odeslání všech dat hromadně do Google Tabulky
                 odesliNaGoogle({ akce: "hromadny_import", data: novaData });
             };
             reader.readAsArrayBuffer(fileInput.files[0]);
         }
 
+        // --- FILTRACE A VYKRESLENÍ ---
         function obnovFiltry() {
             let unikatniVozidla = new Set();
             let unikatniRady = new Set();
@@ -362,17 +392,17 @@
             let hledaneVozidlo = document.getElementById('hledat-vozidlo').value;
             let stav = document.getElementById('hledat-stav').value;
             
-            let data = [...globalniData]; // Vytvoříme kopii pro bezpečné řazení
-            data.sort((a, b) => {
+            let dataKopirovani = [...globalniData]; 
+            dataKopirovani.sort((a, b) => {
                 let dateA = a.datum ? new Date(a.datum).getTime() : 0;
                 let dateB = b.datum ? new Date(b.datum).getTime() : 0;
-                return dateB - dateA;
+                return dateB - dateA; // Řazení od nejnovějšího
             });
 
             let tbody = document.getElementById('tabulka-dat');
             tbody.innerHTML = '';
 
-            data.forEach(z => {
+            dataKopirovani.forEach(z => {
                 let radaZaznamu = z.vozidlo ? z.vozidlo.split(' ')[0] : "";
                 let splnujeText = (z.zavada && z.zavada.toLowerCase().includes(text)) || 
                                   (z.poznamka && z.poznamka.toLowerCase().includes(text)) ||
