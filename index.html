@@ -36,18 +36,20 @@
         .badge-dily { background-color: #ffc107; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; color: black; }
         .badge-vyreseno { background-color: #28a745; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
         
-        .import-box { background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 5px solid #6c757d; }
+        .import-box { background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 5px solid #6c757d; display: none; } /* Defaultně skryté */
         
-        /* Úpravovací modal okno */
         #edit-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; }
         .edit-box { background: white; padding: 25px; border-radius: 8px; width: 400px; max-width: 90%; }
         .edit-box label { font-weight: bold; font-size: 14px; margin-top: 10px; display: block; }
         .edit-box select, .edit-box input { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
+        #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 3000; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; color: var(--cd-blue); }
     </style>
 </head>
 <body>
 
-    <!-- Přihlášení -->
+    <div id="loading-overlay">⏳ Komunikuji s Google Databází...</div>
+
     <div id="login-screen">
         <div class="login-box">
             <h2 style="color: var(--cd-blue); margin-top: 0;">Předávka směn</h2>
@@ -57,7 +59,6 @@
         </div>
     </div>
 
-    <!-- Hlavní Aplikace -->
     <div id="app-content">
         <header>
             <h2 style="margin: 0;">Elektronici ČD</h2>
@@ -68,15 +69,13 @@
         </header>
 
         <div class="container">
-            <!-- Nástroj pro nahrání Excelu -->
             <div class="import-box" id="import-sekce">
                 <h4 style="margin-top: 0;">🔧 Jednorázový import starých záznamů (z Excelu)</h4>
-                <p style="font-size: 14px; color: #555;">Vyberte váš starý soubor <b>test PŘEDÁVKA ELEKTRONICI.xlsx</b>. Po úspěšném nahrání toto okno trvale zmizí.</p>
+                <p style="font-size: 14px; color: #555;">Tato tabulka na Google Disku je prázdná. Vyberte Excel soubor, aplikace ho přelouská a nahraje trvale do cloudu.</p>
                 <input type="file" id="excel-file" accept=".xlsx, .xls" style="margin-bottom: 10px;">
-                <button class="btn btn-small" style="background: var(--cd-blue); color: white;" onclick="nahratExcel()">Načíst historii</button>
+                <button class="btn btn-small" style="background: var(--cd-blue); color: white;" onclick="nahratExcel()">Načíst historii na server</button>
             </div>
 
-            <!-- Přidání záznamu -->
             <div class="panel">
                 <h3 style="margin-top: 0; color: var(--cd-blue);">Napsat nový zápis</h3>
                 <div class="flex-row">
@@ -92,23 +91,15 @@
                     <input type="text" id="novy-zavada" placeholder="Stručný popis závady" style="flex: 2;">
                     <input type="text" id="novy-poznamka" placeholder="Doplňující poznámka (volitelné)" style="flex: 2;">
                 </div>
-                <button class="btn btn-success" style="width: 200px;" onclick="ulozitZapis()">+ Uložit zápis</button>
+                <button class="btn btn-success" style="width: 200px;" onclick="ulozitZapis()">+ Uložit zápis do cloudu</button>
             </div>
 
-            <!-- Vyhledávání a filtrace -->
             <div class="panel">
-                <h3 style="margin-top: 0; color: var(--cd-blue);">Historie a vyhledávání</h3>
+                <h3 style="margin-top: 0; color: var(--cd-blue);">Historie z Google Tabulky</h3>
                 <div class="flex-row">
                     <input type="text" id="hledat-text" placeholder="Hledat (slovo, číslo...)" onkeyup="vykresli()">
-                    
-                    <select id="hledat-rada" onchange="vykresli()">
-                        <option value="">Všechny řady (např. 844)</option>
-                    </select>
-
-                    <select id="hledat-vozidlo" onchange="vykresli()">
-                        <option value="">Všechna konkrétní vozidla</option>
-                    </select>
-
+                    <select id="hledat-rada" onchange="vykresli()"><option value="">Všechny řady</option></select>
+                    <select id="hledat-vozidlo" onchange="vykresli()"><option value="">Všechna konkrétní vozidla</option></select>
                     <select id="hledat-stav" onchange="vykresli()">
                         <option value="">Všechny stavy</option>
                         <option value="Aktivní">⚠️ Aktivní</option>
@@ -116,7 +107,6 @@
                         <option value="Vyřešeno">✅ Vyřešeno</option>
                     </select>
                 </div>
-
                 <table>
                     <thead>
                         <tr>
@@ -135,22 +125,18 @@
         </div>
     </div>
 
-    <!-- Modal pro úpravu záznamu -->
     <div id="edit-modal">
         <div class="edit-box">
-            <h3 style="margin-top: 0; color: var(--cd-blue);">Upravit a aktualizovat záznam</h3>
+            <h3 style="margin-top: 0; color: var(--cd-blue);">Upravit záznam v cloudu</h3>
             <input type="hidden" id="edit-id">
-            
             <label>Změnit stav řešení:</label>
             <select id="edit-stav">
                 <option value="Aktivní">⚠️ Aktivní závada</option>
                 <option value="Čeká na díly">⏳ Čeká na náhradní díly</option>
                 <option value="Vyřešeno">✅ Vyřešeno</option>
             </select>
-            
             <label>Nová poznámka (připíše se k původní):</label>
             <input type="text" id="edit-poznamka-nova" placeholder="Např. Vyměněno čidlo, hotovo...">
-            
             <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button class="btn btn-success" style="flex:1;" onclick="ulozitUpravu()">Uložit změny</button>
                 <button class="btn btn-danger" style="flex:1;" onclick="document.getElementById('edit-modal').style.display='none'">Zrušit</button>
@@ -161,75 +147,49 @@
     <datalist id="seznam-vozidel"></datalist>
 
     <script>
-        // --- JÁDRO DATABÁZE ---
-        function ziskejData() { return JSON.parse(localStorage.getItem('databaze') || "[]"); }
-        function ulozData(data) { localStorage.setItem('databaze', JSON.stringify(data)); }
+        // === SEM VLOŽ SVOU URL Z KROKU 2 ===
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwd80k5-QkmUU2Pblzq1HQK_JaH8orvLabyt0A4j42UCnqOpSNNAqpFadqfXC5gJAJG/exec"; 
+        
+        let globalniData = []; // Zde si držíme data z Google Tabulky
 
-        // --- AUTOMATICKÁ OPRAVA STARÝCH DAT V PAMĚTI ---
-        function opravitHistorickaData() {
-            let data = ziskejData();
-            let zmeneno = false;
-            
-            data.forEach(z => {
-                // Oprava názvu 814_914 na čisté 814
-                if (z.vozidlo && z.vozidlo.includes('814_914')) {
-                    z.vozidlo = z.vozidlo.replace(/814_914[_ ]*/g, '814 ').replace(/\s+/g, ' ').trim();
-                    zmeneno = true;
-                }
+        function ukazNacitani(zobrazit) {
+            document.getElementById('loading-overlay').style.display = zobrazit ? 'flex' : 'none';
+        }
+
+        async function stahniDataZGoogle() {
+            ukazNacitani(true);
+            try {
+                let odpoved = await fetch(SCRIPT_URL);
+                globalniData = await odpoved.json();
                 
-                // Převod všech datumů do YYYY-MM-DD pro bezchybné řazení
-                if (z.datum) {
-                    let stareDatum = z.datum;
-                    
-                    if (!isNaN(Number(stareDatum)) && Number(stareDatum) > 10000) {
-                        // Excel číslo
-                        let d = new Date(Math.round((Number(stareDatum) - 25569) * 86400 * 1000));
-                        z.datum = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                        zmeneno = true;
-                    } 
-                    else if (typeof stareDatum === 'string' && stareDatum.includes('.')) {
-                        // Formát DD.MM.YYYY
-                        let dily = stareDatum.split('.');
-                        if(dily.length >= 3) {
-                           let den = dily[0].trim().padStart(2, '0');
-                           let mesic = dily[1].trim().padStart(2, '0');
-                           let rok = dily[2].trim().substring(0,4);
-                           if (rok.length === 4) {
-                               z.datum = `${rok}-${mesic}-${den}`;
-                               zmeneno = true;
-                           }
-                        }
-                    }
-                }
-            });
-            
-            if(zmeneno) ulozData(data);
+                // Pokud je tabulka prázdná, ukážeme import, jinak ho skryjeme
+                document.getElementById('import-sekce').style.display = (globalniData.length === 0) ? 'block' : 'none';
+                
+                obnovFiltry();
+                vykresli();
+            } catch (error) {
+                console.error("Chyba při stahování dat:", error);
+                alert("Nepodařilo se připojit k Google Databázi. Zkontroluj URL odkaz v kódu.");
+            }
+            ukazNacitani(false);
         }
 
-        // --- AUTOMATICKÉ VYŘEŠENÍ PO MĚSÍCI ---
-        function zkontrolujStareZavady() {
-            let data = ziskejData();
-            let zmeneno = false;
-            let dnesniDatum = new Date();
-
-            data.forEach(z => {
-                if ((z.stav === 'Aktivní' || z.stav === 'Čeká na díly') && z.datum) {
-                    let datumZaznamu = new Date(z.datum);
-                    if (!isNaN(datumZaznamu.getTime())) {
-                        let rozdilDni = (dnesniDatum - datumZaznamu) / (1000 * 60 * 60 * 24);
-                        if (rozdilDni >= 30) {
-                            z.stav = 'Vyřešeno';
-                            let zprava = "[Automat. vyřešeno > 30 dní]";
-                            z.poznamka = z.poznamka ? z.poznamka + " | " + zprava : zprava;
-                            zmeneno = true;
-                        }
-                    }
-                }
-            });
-            if (zmeneno) ulozData(data);
+        async function odesliNaGoogle(payload) {
+            ukazNacitani(true);
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Zabrání chybám prohlížeče (CORS)
+                    body: JSON.stringify(payload)
+                });
+                await stahniDataZGoogle(); // Hned si stáhneme čerstvá data
+            } catch (error) {
+                console.error("Chyba při odesílání:", error);
+                alert("Data se nepodařilo odeslat do cloudu.");
+                ukazNacitani(false);
+            }
         }
 
-        // --- PŘIHLÁŠENÍ A START ---
         function overPrihlaseni() {
             let uzivatel = localStorage.getItem('aktualniUzivatel');
             if(uzivatel) {
@@ -237,12 +197,7 @@
                 document.getElementById('app-content').style.display = 'block';
                 document.getElementById('jmeno-ukazatel').innerText = "👤 " + uzivatel;
                 document.getElementById('novy-datum').valueAsDate = new Date();
-                
-                opravitHistorickaData(); 
-                zkontrolujStareZavady(); 
-                skrytImportPokudJsouData();
-                obnovFiltry();
-                vykresli();
+                stahniDataZGoogle(); 
             }
         }
         
@@ -260,14 +215,6 @@
             document.getElementById('app-content').style.display = 'none';
         }
 
-        function skrytImportPokudJsouData() {
-            let data = ziskejData();
-            if(data.length > 0) {
-                document.getElementById('import-sekce').style.display = 'none';
-            }
-        }
-
-        // --- PŘIDÁNÍ A ÚPRAVA ZÁZNAMŮ ---
         function ulozitZapis() {
             let datum = document.getElementById('novy-datum').value;
             let vozidlo = document.getElementById('novy-vozidlo').value.trim();
@@ -277,34 +224,25 @@
             let autor = localStorage.getItem('aktualniUzivatel');
 
             if(!vozidlo || !zavada) { alert("Vozidlo a Popis závady musí být vyplněny!"); return; }
-
-            // Převedení nového zápisu na čistou 814
             vozidlo = vozidlo.replace(/814_914[_ ]*/g, '814 ').replace(/\s+/g, ' ').trim();
 
-            let data = ziskejData();
-            data.unshift({ // Ukládá nová data nakonec, ale o reálné zobrazení se stará řazení ve vykresli()
-                id: Date.now(),
-                datum: datum, // Z formuláře jde už v YYYY-MM-DD
-                vozidlo: vozidlo,
-                zavada: zavada,
-                poznamka: poznamka,
-                stav: stav,
-                autor: autor
-            });
+            let payload = {
+                akce: "pridat",
+                data: {
+                    id: Date.now(), datum: datum, vozidlo: vozidlo,
+                    zavada: zavada, poznamka: poznamka, stav: stav, autor: autor
+                }
+            };
 
-            ulozData(data);
-            
             document.getElementById('novy-vozidlo').value = '';
             document.getElementById('novy-zavada').value = '';
             document.getElementById('novy-poznamka').value = '';
             
-            obnovFiltry();
-            vykresli();
+            odesliNaGoogle(payload);
         }
 
         function otevriUpravu(id) {
-            let data = ziskejData();
-            let zaznam = data.find(z => z.id == id);
+            let zaznam = globalniData.find(z => z.id == id);
             if(zaznam) {
                 document.getElementById('edit-id').value = zaznam.id;
                 document.getElementById('edit-stav').value = zaznam.stav;
@@ -319,29 +257,25 @@
             let novaPoznamka = document.getElementById('edit-poznamka-nova').value.trim();
             let autor = localStorage.getItem('aktualniUzivatel');
             
-            let data = ziskejData();
-            let zaznamIndex = data.findIndex(z => z.id == id);
-            
-            if(zaznamIndex !== -1) {
-                data[zaznamIndex].stav = novyStav;
-                
+            let zaznam = globalniData.find(z => z.id == id);
+            if(zaznam) {
+                let vyslednaPoznamka = zaznam.poznamka || "";
                 if(novaPoznamka !== "") {
                     let datumDnes = new Date().toLocaleDateString('cs-CZ');
                     let pridavek = `[${datumDnes} ${autor}]: ${novaPoznamka}`;
-                    if(data[zaznamIndex].poznamka) {
-                        data[zaznamIndex].poznamka += " | " + pridavek;
-                    } else {
-                        data[zaznamIndex].poznamka = pridavek;
-                    }
+                    vyslednaPoznamka = vyslednaPoznamka ? (vyslednaPoznamka + " | " + pridavek) : pridavek;
                 }
                 
-                ulozData(data);
+                let payload = {
+                    akce: "upravit",
+                    data: { id: id, stav: novyStav, poznamka: vyslednaPoznamka }
+                };
+                
                 document.getElementById('edit-modal').style.display = 'none';
-                vykresli();
+                odesliNaGoogle(payload);
             }
         }
 
-        // --- IMPORT Z EXCELU ---
         function nahratExcel() {
             let fileInput = document.getElementById('excel-file');
             if(!fileInput.files.length) { alert("Nejdřív vyber ten Excel soubor!"); return; }
@@ -356,8 +290,6 @@
                     if(sheetName === 'List1' || sheetName === 'Poznámky' || sheetName === 'vzor') return;
                     let ws = workbook.Sheets[sheetName];
                     let jsonData = XLSX.utils.sheet_to_json(ws, {raw: true}); 
-                    
-                    // Okamžité přepsání názvu vozidla z 814_914 na 814
                     let vozidloName = sheetName.trim().replace(/814_914[_ ]*/g, '814 ').replace(/\s+/g, ' ').trim();
 
                     jsonData.forEach(row => {
@@ -366,64 +298,41 @@
                         let p = (row['POZNÁMKY'] || "").toString().trim();
 
                         let dFinal = "";
-                        // Striktní vytahování datumu z tabulky s převodem na interní YYYY-MM-DD
                         if (dRaw instanceof Date) {
-                            let rok = dRaw.getFullYear();
-                            let mesic = String(dRaw.getMonth() + 1).padStart(2, '0');
-                            let den = String(dRaw.getDate()).padStart(2, '0');
-                            dFinal = `${rok}-${mesic}-${den}`;
+                            dFinal = `${dRaw.getFullYear()}-${String(dRaw.getMonth() + 1).padStart(2, '0')}-${String(dRaw.getDate()).padStart(2, '0')}`;
                         } else if (dRaw) {
                             let dString = String(dRaw).trim();
                             if(dString.includes('.')) {
                                 let dily = dString.split('.');
-                                if(dily.length >= 3) {
-                                    dFinal = `${dily[2].substring(0,4)}-${dily[1].padStart(2,'0')}-${dily[0].padStart(2,'0')}`;
-                                }
-                            } else {
-                                dFinal = dString; // Pokud je to už YYYY-MM-DD textem
-                            }
+                                if(dily.length >= 3) dFinal = `${dily[2].substring(0,4)}-${dily[1].padStart(2,'0')}-${dily[0].padStart(2,'0')}`;
+                            } else dFinal = dString;
                         }
 
                         if(z !== "" || dFinal !== "") {
                             novaData.push({
-                                id: Date.now() + Math.random(),
-                                datum: dFinal,
-                                vozidlo: vozidloName,
-                                zavada: z,
-                                poznamka: p,
-                                stav: "Vyřešeno",
-                                autor: "-elektronici VM-"
+                                id: Date.now() + Math.random(), datum: dFinal, vozidlo: vozidloName,
+                                zavada: z, poznamka: p, stav: "Vyřešeno", autor: "-elektronici VM-"
                             });
                         }
                     });
                 });
                 
-                let existujiciData = ziskejData();
-                ulozData(existujiciData.concat(novaData));
-                
-                alert("Paráda! Nahráno " + novaData.length + " záznamů.");
-                skrytImportPokudJsouData();
-                obnovFiltry();
-                vykresli();
+                odesliNaGoogle({ akce: "hromadny_import", data: novaData });
             };
             reader.readAsArrayBuffer(fileInput.files[0]);
         }
 
-        // --- VYKRESLOVÁNÍ A FILTRY ---
         function obnovFiltry() {
-            let data = ziskejData();
             let unikatniVozidla = new Set();
             let unikatniRady = new Set();
 
-            data.forEach(z => { 
+            globalniData.forEach(z => { 
                 if(z.vozidlo) {
                     unikatniVozidla.add(z.vozidlo); 
-                    // Vyzobnutí první části názvu jako "Řada" (např. z "844 020" udělá "844")
                     unikatniRady.add(z.vozidlo.split(' ')[0]);
                 }
             });
             
-            // Filtr vozidel
             let poleVozidel = Array.from(unikatniVozidla).sort();
             let filtrVozidel = document.getElementById('hledat-vozidlo');
             let datalist = document.getElementById('seznam-vozidel');
@@ -434,20 +343,16 @@
                 let opt = document.createElement('option'); opt.value = v; datalist.appendChild(opt);
             });
 
-            // Filtr řad
             let poleRad = Array.from(unikatniRady).sort();
             let filtrRad = document.getElementById('hledat-rada');
             filtrRad.innerHTML = '<option value="">Všechny řady (např. 844)</option>';
-            poleRad.forEach(r => {
-                filtrRad.appendChild(new Option("Řada " + r, r));
-            });
+            poleRad.forEach(r => { filtrRad.appendChild(new Option("Řada " + r, r)); });
         }
 
         function formatujDatumHezky(datumYYYYMMDD) {
             if(!datumYYYYMMDD) return "";
             let dObj = new Date(datumYYYYMMDD);
             if(isNaN(dObj)) return datumYYYYMMDD;
-            // Výsledek bude krásné české datum např. "3. 7. 2023"
             return dObj.toLocaleDateString('cs-CZ');
         }
 
@@ -457,9 +362,7 @@
             let hledaneVozidlo = document.getElementById('hledat-vozidlo').value;
             let stav = document.getElementById('hledat-stav').value;
             
-            let data = ziskejData();
-            
-            // ŘAZENÍ: Vždy od nejnovějšího datumu (nahoře) po nejstarší
+            let data = [...globalniData]; // Vytvoříme kopii pro bezpečné řazení
             data.sort((a, b) => {
                 let dateA = a.datum ? new Date(a.datum).getTime() : 0;
                 let dateB = b.datum ? new Date(b.datum).getTime() : 0;
@@ -471,7 +374,6 @@
 
             data.forEach(z => {
                 let radaZaznamu = z.vozidlo ? z.vozidlo.split(' ')[0] : "";
-                
                 let splnujeText = (z.zavada && z.zavada.toLowerCase().includes(text)) || 
                                   (z.poznamka && z.poznamka.toLowerCase().includes(text)) ||
                                   (z.autor && z.autor.toLowerCase().includes(text));
@@ -481,7 +383,6 @@
 
                 if (splnujeText && splnujeRadu && splnujeVozidlo && splnujeStav) {
                     let tr = document.createElement('tr');
-                    
                     let stavBadge = "";
                     if (z.stav === 'Aktivní') stavBadge = '<span class="badge-aktivni">Aktivní</span>';
                     else if (z.stav === 'Čeká na díly') stavBadge = '<span class="badge-dily">Čeká na díly</span>';
