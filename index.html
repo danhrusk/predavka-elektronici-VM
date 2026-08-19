@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elektronici ČD | Předávka</title>
+    <!-- Knihovna pro čtení Excelu -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root { --cd-blue: #004b87; --cd-light-blue: #009fe3; --bg-color: #f4f6f9; }
@@ -67,7 +68,7 @@
         </header>
 
         <div class="container">
-            <!-- Nástroj pro nahrání Excelu (zmizí, jakmile jsou nahrána data) -->
+            <!-- Nástroj pro nahrání Excelu -->
             <div class="import-box" id="import-sekce">
                 <h4 style="margin-top: 0;">🔧 Jednorázový import starých záznamů (z Excelu)</h4>
                 <p style="font-size: 14px; color: #555;">Vyberte váš starý soubor <b>test PŘEDÁVKA ELEKTRONICI.xlsx</b>. Po úspěšném nahrání toto okno trvale zmizí.</p>
@@ -156,33 +157,47 @@
     <datalist id="seznam-vozidel"></datalist>
 
     <script>
-        // --- POMOCNÁ FUNKCE PRO OPRAVU EXCEL DATUMU ---
-        function opravitDatumZExcelu(hodnota) {
-            if (!hodnota) return "";
-            // Pokud je to to divné číslo (např. 45110)
-            if (typeof hodnota === 'number' || !isNaN(Number(hodnota))) {
-                let cislo = Number(hodnota);
-                if(cislo > 10000) { // Je to pravděpodobně excelovské datum
-                    let datum = new Date(Math.round((cislo - 25569) * 86400 * 1000));
-                    return datum.toISOString().split('T')[0];
-                }
-            }
-            // Pokud je to text DD.MM.YYYY, převedeme na YYYY-MM-DD
-            if (typeof hodnota === 'string') {
-                let dily = hodnota.split('.');
-                if (dily.length === 3) {
-                    let d = dily[0].trim().padStart(2, '0');
-                    let m = dily[1].trim().padStart(2, '0');
-                    let y = dily[2].trim().substring(0, 4); // Odříznutí případného času
-                    if (y.length === 4) return `${y}-${m}-${d}`;
-                }
-            }
-            return hodnota;
-        }
-
-        // --- DATOVÉ FUNKCE ---
+        // --- JÁDRO DATABÁZE ---
         function ziskejData() { return JSON.parse(localStorage.getItem('databaze') || "[]"); }
         function ulozData(data) { localStorage.setItem('databaze', JSON.stringify(data)); }
+
+        // --- AUTOMATICKÁ OPRAVA STARÝCH DAT V PAMĚTI ---
+        function opravitHistorickaData() {
+            let data = ziskejData();
+            let zmeneno = false;
+            
+            data.forEach(z => {
+                // Oprava názvu 814_914 na 814
+                if (z.vozidlo && z.vozidlo.includes('814_914')) {
+                    z.vozidlo = z.vozidlo.replace(/814_914[_ ]*/g, '814 ').replace(/\s+/g, ' ').trim();
+                    zmeneno = true;
+                }
+                
+                // Oprava Excel datumů (číselných např. 45110)
+                if (z.datum && !isNaN(Number(z.datum)) && Number(z.datum) > 10000) {
+                    let cislo = Number(z.datum);
+                    let d = new Date(Math.round((cislo - 25569) * 86400 * 1000));
+                    z.datum = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                    zmeneno = true;
+                }
+                
+                // Záchrana pro staré textové datumy (DD.MM.YYYY -> YYYY-MM-DD)
+                if (z.datum && typeof z.datum === 'string' && z.datum.includes('.')) {
+                    let dily = z.datum.split('.');
+                    if(dily.length >= 3) {
+                       let den = dily[0].trim().padStart(2, '0');
+                       let mesic = dily[1].trim().padStart(2, '0');
+                       let rok = dily[2].trim().substring(0,4);
+                       if (rok.length === 4) {
+                           z.datum = `${rok}-${mesic}-${den}`;
+                           zmeneno = true;
+                       }
+                    }
+                }
+            });
+            
+            if(zmeneno) ulozData(data);
+        }
 
         // --- AUTOMATICKÉ VYŘEŠENÍ PO MĚSÍCI ---
         function zkontrolujStareZavady() {
@@ -204,11 +219,10 @@
                     }
                 }
             });
-
             if (zmeneno) ulozData(data);
         }
 
-        // --- PŘIHLÁŠENÍ ---
+        // --- PŘIHLÁŠENÍ A START ---
         function overPrihlaseni() {
             let uzivatel = localStorage.getItem('aktualniUzivatel');
             if(uzivatel) {
@@ -217,7 +231,8 @@
                 document.getElementById('jmeno-ukazatel').innerText = "👤 " + uzivatel;
                 document.getElementById('novy-datum').valueAsDate = new Date();
                 
-                zkontrolujStareZavady(); // Spustí kontrolu měsíc starých závad
+                opravitHistorickaData(); // Okamžitá oprava paměti!
+                zkontrolujStareZavady(); 
                 skrytImportPokudJsouData();
                 obnovFiltrVozidel();
                 vykresli();
@@ -238,7 +253,6 @@
             document.getElementById('app-content').style.display = 'none';
         }
 
-        // --- SKRYTÍ IMPORTU ---
         function skrytImportPokudJsouData() {
             let data = ziskejData();
             if(data.length > 0) {
@@ -246,7 +260,7 @@
             }
         }
 
-        // --- PŘIDÁNÍ ZÁZNAMU ---
+        // --- PŘIDÁNÍ A ÚPRAVA ZÁZNAMŮ ---
         function ulozitZapis() {
             let datum = document.getElementById('novy-datum').value;
             let vozidlo = document.getElementById('novy-vozidlo').value.trim();
@@ -256,6 +270,9 @@
             let autor = localStorage.getItem('aktualniUzivatel');
 
             if(!vozidlo || !zavada) { alert("Vozidlo a Popis závady musí být vyplněny!"); return; }
+
+            // Převedení nového zápisu na čistou 814
+            vozidlo = vozidlo.replace(/814_914[_ ]*/g, '814 ').replace(/\s+/g, ' ').trim();
 
             let data = ziskejData();
             data.unshift({
@@ -278,14 +295,13 @@
             vykresli();
         }
 
-        // --- ÚPRAVA ZÁZNAMU (AKTUALIZACE) ---
         function otevriUpravu(id) {
             let data = ziskejData();
             let zaznam = data.find(z => z.id == id);
             if(zaznam) {
                 document.getElementById('edit-id').value = zaznam.id;
                 document.getElementById('edit-stav').value = zaznam.stav;
-                document.getElementById('edit-poznamka-nova').value = ""; // Vyčistíme políčko pro novou poznámku
+                document.getElementById('edit-poznamka-nova').value = ""; 
                 document.getElementById('edit-modal').style.display = 'flex';
             }
         }
@@ -302,11 +318,9 @@
             if(zaznamIndex !== -1) {
                 data[zaznamIndex].stav = novyStav;
                 
-                // Pokud uživatel dopsal novou poznámku, připojíme ji k té staré
                 if(novaPoznamka !== "") {
                     let datumDnes = new Date().toLocaleDateString('cs-CZ');
                     let pridavek = `[${datumDnes} ${autor}]: ${novaPoznamka}`;
-                    
                     if(data[zaznamIndex].poznamka) {
                         data[zaznamIndex].poznamka += " | " + pridavek;
                     } else {
@@ -320,7 +334,7 @@
             }
         }
 
-        // --- IMPORT Z EXCELU ---
+        // --- IMPORT Z EXCELU S NATIVNÍ PODPOROU DATUMU ---
         function nahratExcel() {
             let fileInput = document.getElementById('excel-file');
             if(!fileInput.files.length) { alert("Nejdřív vyber ten Excel soubor!"); return; }
@@ -328,24 +342,39 @@
             let reader = new FileReader();
             reader.onload = function(e) {
                 let dataArray = new Uint8Array(e.target.result);
-                let workbook = XLSX.read(dataArray, {type: 'array'});
+                // "cellDates: true" zajistí, že SheetJS přečte Excel datum jako JavaScript Datum
+                let workbook = XLSX.read(dataArray, {type: 'array', cellDates: true});
                 let novaData = [];
                 
                 workbook.SheetNames.forEach(sheetName => {
                     if(sheetName === 'List1' || sheetName === 'Poznámky' || sheetName === 'vzor') return;
                     let ws = workbook.Sheets[sheetName];
-                    let jsonData = XLSX.utils.sheet_to_json(ws, {raw: false}); 
+                    // "raw: true" vytáhne přímé objekty místo pomíchaného textu
+                    let jsonData = XLSX.utils.sheet_to_json(ws, {raw: true}); 
                     
-                    jsonData.forEach(row => {
-                        let z = (row['POPIS ZÁVADY'] || "").trim();
-                        let dRaw = row['DATUM'] || "";
-                        let p = (row['POZNÁMKY'] || "").trim();
+                    // Okamžité přepsání názvu vozidla z 814_914 na 814
+                    let vozidloName = sheetName.trim().replace(/814_914[_ ]*/g, '814 ').replace(/\s+/g, ' ').trim();
 
-                        if(z !== "" || dRaw !== "") {
+                    jsonData.forEach(row => {
+                        let z = (row['POPIS ZÁVADY'] || "").toString().trim();
+                        let dRaw = row['DATUM'] || row['datum'] || row['Datum'];
+                        let p = (row['POZNÁMKY'] || "").toString().trim();
+
+                        let dFinal = "";
+                        if (dRaw instanceof Date) {
+                            let rok = dRaw.getFullYear();
+                            let mesic = String(dRaw.getMonth() + 1).padStart(2, '0');
+                            let den = String(dRaw.getDate()).padStart(2, '0');
+                            dFinal = `${rok}-${mesic}-${den}`;
+                        } else if (dRaw) {
+                            dFinal = String(dRaw).trim();
+                        }
+
+                        if(z !== "" || dFinal !== "") {
                             novaData.push({
                                 id: Date.now() + Math.random(),
-                                datum: opravitDatumZExcelu(dRaw), // Použití našeho opravovače datumu
-                                vozidlo: sheetName.trim(),
+                                datum: dFinal,
+                                vozidlo: vozidloName,
                                 zavada: z,
                                 poznamka: p,
                                 stav: "Vyřešeno",
