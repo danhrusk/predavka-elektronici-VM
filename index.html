@@ -4,268 +4,333 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elektronici ČD | Předávka</title>
+    <!-- Knihovna pro čtení Excelu přímo v prohlížeči -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
-        /* Design inspirovaný Českými Dráhami */
-        :root {
-            --cd-blue: #004b87;
-            --cd-light-blue: #009fe3;
-            --bg-color: #f4f6f9;
-        }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); margin: 0; }
+        :root { --cd-blue: #004b87; --cd-light-blue: #009fe3; --bg-color: #f4f6f9; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); margin: 0; }
         
-        /* Přihlašovací Modal */
-        #login-modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;
-        }
-        .modal-content { background: white; padding: 30px; border-radius: 8px; text-align: center; width: 300px; }
-        .modal-content input { width: 90%; padding: 10px; margin: 10px 0; }
-        .btn { background-color: var(--cd-light-blue); color: white; padding: 10px 20px; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; margin-top: 10px;}
-        .btn:hover { background-color: var(--cd-blue); }
+        /* Přihlašovací obrazovka */
+        #login-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--cd-blue); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .login-box { background: white; padding: 40px; border-radius: 8px; text-align: center; width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .login-box input { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px;}
+        .btn { background-color: var(--cd-light-blue); color: white; padding: 12px 20px; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; font-size: 16px; }
+        .btn:hover { background-color: #007bb5; }
+        .btn-small { width: auto; padding: 8px 15px; font-size: 14px; }
+        .btn-danger { background-color: #dc3545; }
+        .btn-success { background-color: #28a745; }
 
         /* Hlavní aplikace */
-        #app-content { display: none; } /* Skryto před přihlášením */
+        #app-content { display: none; }
         header { background-color: var(--cd-blue); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 5px solid var(--cd-light-blue); }
-        .container { max-width: 1000px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
+        .panel { background: white; border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         
-        /* Ovládací panely */
-        .panel { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
-        .admin-panel { background-color: #fff3cd; border-color: #ffeeba; display: none; }
+        .flex-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .flex-row input, .flex-row select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 150px; }
         
-        input, select { padding: 10px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
-        
-        /* Tabulka */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: var(--cd-blue); color: white; }
         tr:nth-child(even) { background-color: #f9f9f9; }
-        .btn-delete { background-color: #dc3545; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; }
+        
+        .badge-aktivni { background-color: #ffc107; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .badge-vyreseno { background-color: #28a745; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        
+        .import-box { background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 5px solid #6c757d; }
     </style>
 </head>
 <body>
 
-    <!-- Přihlašovací vyskakovací okno -->
-    <div id="login-modal">
-        <div class="modal-content">
-            <h2 style="color: #004b87;">Předávka Elektroniků</h2>
-            <input type="text" id="login-jmeno" placeholder="Přihlašovací jméno">
-            <input type="password" id="login-heslo" placeholder="Heslo">
-            <button class="btn" onclick="prihlasit()">Přihlásit se</button>
-            <p id="login-chyba" style="color: red; display: none;">Špatné jméno nebo heslo!</p>
+    <!-- Přihlášení -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h2 style="color: var(--cd-blue); margin-top: 0;">Předávka směn</h2>
+            <p>Zadejte své jméno pro vstup</p>
+            <input type="text" id="login-jmeno" placeholder="Např. Dan, Pepa..." onkeypress="if(event.key === 'Enter') prihlasit()">
+            <button class="btn" onclick="prihlasit()">Vstoupit do deníku</button>
         </div>
     </div>
 
-    <!-- Hlavní obsah aplikace -->
+    <!-- Aplikace -->
     <div id="app-content">
         <header>
-            <h2>Předávka směn</h2>
-            <div style="display: flex; gap: 15px; align-items: center;">
-                <span id="prihlaseny-uzivatel"></span>
-                <button onclick="odhlasit()" style="background: transparent; color: white; border: 1px solid white; padding: 5px 10px; cursor: pointer;">Odhlásit</button>
+            <h2 style="margin: 0;">Elektronici ČD</h2>
+            <div>
+                <span id="jmeno-ukazatel" style="margin-right: 15px; font-weight: bold;"></span>
+                <button class="btn btn-small btn-danger" onclick="odhlasit()">Změnit uživatele</button>
             </div>
         </header>
 
         <div class="container">
-            <!-- Admin panel pro tvorbu uživatelů -->
-            <div id="admin-panel" class="panel admin-panel">
-                <h3 style="margin-top:0;">Administrace: Vytvořit nového uživatele</h3>
-                <input type="text" id="novy-jmeno" placeholder="Jméno a Příjmení (např. Jan Novák)">
-                <input type="text" id="novy-login" placeholder="Přihlašovací jméno (login)">
-                <input type="text" id="novy-heslo" placeholder="Heslo">
-                <button class="btn" style="width: auto;" onclick="vytvoritUzivatele()">Vytvořit uživatele</button>
+            <!-- Nástroj pro nahrání Excelu -->
+            <div class="import-box" id="import-sekce">
+                <h4 style="margin-top: 0;">🔧 Jednorázový import starých záznamů (z Excelu)</h4>
+                <p style="font-size: 14px; color: #555;">Vyberte váš starý soubor <b>test PŘEDÁVKA ELEKTRONICI.xlsx</b> a aplikace ho celý převede a uloží.</p>
+                <input type="file" id="excel-file" accept=".xlsx, .xls" style="margin-bottom: 10px;">
+                <button class="btn btn-small" onclick="nahratExcel()">Načíst historii</button>
+                <button class="btn btn-small btn-danger" onclick="smazatVse()" style="float: right;">Vymazat databázi</button>
             </div>
 
-            <!-- Panel pro přidání záznamu -->
+            <!-- Přidání záznamu -->
             <div class="panel">
-                <h3 style="margin-top:0;">Nový zápis k vozidlu</h3>
-                <input type="date" id="zapis-datum">
-                <input type="text" id="zapis-vozidlo" placeholder="Číslo (např. 844 020)">
-                <input type="text" id="zapis-zavada" placeholder="Popis závady" style="width: 300px;">
-                <input type="text" id="zapis-poznamka" placeholder="Poznámky (díly, řešení...)" style="width: 250px;">
-                <button class="btn" style="width: auto;" onclick="pridatZaznam()">Uložit zápis</button>
+                <h3 style="margin-top: 0; color: var(--cd-blue);">Napsat nový zápis</h3>
+                <div class="flex-row">
+                    <input type="date" id="novy-datum">
+                    <input list="seznam-vozidel" id="novy-vozidlo" placeholder="Číslo vozidla (např. 844 020)">
+                    <select id="novy-stav">
+                        <option value="Aktivní">Stav: ⚠️ Aktivní závada</option>
+                        <option value="Vyřešeno">Stav: ✅ Vyřešeno</option>
+                    </select>
+                </div>
+                <div class="flex-row">
+                    <input type="text" id="novy-zavada" placeholder="Stručný popis závady" style="flex: 2;">
+                    <input type="text" id="novy-poznamka" placeholder="Doplňující poznámka (volitelné)" style="flex: 2;">
+                </div>
+                <button class="btn btn-success" style="width: 200px;" onclick="ulozitZapis()">+ Uložit zápis</button>
             </div>
 
-            <!-- Vyhledávání a tabulka s daty -->
+            <!-- Vyhledávání a filtrace -->
             <div class="panel">
-                <h3 style="margin-top:0;">Historie a vyhledávání</h3>
-                <input type="text" id="hledat" placeholder="Hledat (např. 714, EDB, osvětlení...)" onkeyup="vykresliTabulku()" style="width: 100%; box-sizing: border-box; margin-bottom: 15px;">
-                
+                <h3 style="margin-top: 0; color: var(--cd-blue);">Vyhledávání v historii</h3>
+                <div class="flex-row">
+                    <input type="text" id="hledat-text" placeholder="Hledat slovo (např. osvětlení, EDB...)" onkeyup="vykresli()">
+                    
+                    <select id="hledat-vozidlo" onchange="vykresli()">
+                        <option value="">Všechna vozidla</option>
+                        <!-- Generováno automaticky z databáze -->
+                    </select>
+
+                    <select id="hledat-stav" onchange="vykresli()">
+                        <option value="">Všechny stavy</option>
+                        <option value="Aktivní">⚠️ Aktivní</option>
+                        <option value="Vyřešeno">✅ Vyřešeno</option>
+                    </select>
+                </div>
+
                 <table>
                     <thead>
                         <tr>
                             <th>Datum</th>
                             <th>Vozidlo</th>
-                            <th>Popis závady</th>
+                            <th>Závada</th>
                             <th>Poznámka</th>
-                            <th>Akce</th>
+                            <th>Stav</th>
+                            <th>Zapsal</th>
                         </tr>
                     </thead>
-                    <tbody id="tabulka-dat">
-                        <!-- Zde se doplní data javascriptem -->
-                    </tbody>
+                    <tbody id="tabulka-dat"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
+    <!-- Datový seznam pro napovídání při psaní vozidla -->
+    <datalist id="seznam-vozidel"></datalist>
+
     <script>
-        // --- 1. Inicializace Databáze v prohlížeči (LocalStorage) ---
-
-        // Výchozí uživatel ADMIN, pokud ještě v prohlížeči nejsou žádní uložení
-        if (!localStorage.getItem('uzivatele')) {
-            const vychoziUzivatele = [
-                { login: 'ADMIN', heslo: '4242', celeJmeno: 'Administrátor', jeAdmin: true }
-            ];
-            localStorage.setItem('uzivatele', JSON.stringify(vychoziUzivatele));
-        }
-
-        // Výchozí stará data z tvého Excelu (pouze pokud aplikace startuje poprvé)
-        if (!localStorage.getItem('zaznamy')) {
-            const staraDataZExcelu = [
-                { id: 1, datum: '2023-07-03', vozidlo: '704 020', zavada: 'MM', poznamka: 'osvětlení' },
-                { id: 2, datum: '2025-11-20', vozidlo: '704 020', zavada: 'přijela po R2', poznamka: 'odebrána lednice dána na dílnu' },
-                { id: 3, datum: '2025-11-11', vozidlo: '714 226', zavada: 'Nefunkční EDB z obou stanovišť', poznamka: 'Na přepínači regulace 1 přerušený vodič natáhnuty nový' },
-                { id: 4, datum: '2023-06-09', vozidlo: '810 015', zavada: 'nejde AVJF', poznamka: 'byla vypadlá vratná pojistka, baterka měla 11V. Výměna. Odzkoušení OK' },
-                { id: 5, datum: '2023-06-10', vozidlo: '810 329', zavada: 'nejde rychloměr', poznamka: 'výměna' }
-            ];
-            localStorage.setItem('zaznamy', JSON.stringify(staraDataZExcelu));
-        }
-
-        // --- 2. Přihlašovací logika ---
-        let aktualniUzivatel = null;
-
-        function prihlasit() {
-            const login = document.getElementById('login-jmeno').value;
-            const heslo = document.getElementById('login-heslo').value;
-            const uzivatele = JSON.parse(localStorage.getItem('uzivatele'));
-
-            // Hledání uživatele v databázi
-            const nalezeny = uzivatele.find(u => u.login === login && u.heslo === heslo);
-
-            if (nalezeny) {
-                aktualniUzivatel = nalezeny;
-                document.getElementById('login-modal').style.display = 'none';
+        // --- 1. Přihlášení ---
+        function overPrihlaseni() {
+            let uzivatel = localStorage.getItem('aktualniUzivatel');
+            if(uzivatel) {
+                document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app-content').style.display = 'block';
-                document.getElementById('prihlaseny-uzivatel').innerText = "Přihlášen: " + nalezeny.celeJmeno;
-                
-                // Pokud je admin, ukaž panel pro přidávání uživatelů
-                if (nalezeny.jeAdmin) {
-                    document.getElementById('admin-panel').style.display = 'block';
-                } else {
-                    document.getElementById('admin-panel').style.display = 'none';
-                }
-                
-                // Nastav dnešní datum do formuláře
-                document.getElementById('zapis-datum').valueAsDate = new Date();
-                
-                vykresliTabulku(); // Načti data
-            } else {
-                document.getElementById('login-chyba').style.display = 'block';
+                document.getElementById('jmeno-ukazatel').innerText = "👤 " + uzivatel;
+                document.getElementById('novy-datum').valueAsDate = new Date(); // Dnešní datum předvyplněno
+                obnovFiltrVozidel();
+                vykresli();
             }
+        }
+        
+        function prihlasit() {
+            let jmeno = document.getElementById('login-jmeno').value.trim();
+            if(jmeno === "") {
+                alert("Musíš zadat jméno!");
+                return;
+            }
+            localStorage.setItem('aktualniUzivatel', jmeno);
+            overPrihlaseni();
         }
 
         function odhlasit() {
-            aktualniUzivatel = null;
+            localStorage.removeItem('aktualniUzivatel');
             document.getElementById('login-jmeno').value = '';
-            document.getElementById('login-heslo').value = '';
-            document.getElementById('login-chyba').style.display = 'none';
+            document.getElementById('login-screen').style.display = 'flex';
             document.getElementById('app-content').style.display = 'none';
-            document.getElementById('login-modal').style.display = 'flex';
         }
 
-        // --- 3. Administrace (tvorba uživatelů) ---
-        function vytvoritUzivatele() {
-            const jmeno = document.getElementById('novy-jmeno').value;
-            const login = document.getElementById('novy-login').value;
-            const heslo = document.getElementById('novy-heslo').value;
-
-            if (!jmeno || !login || !heslo) {
-                alert("Vyplňte všechna pole pro nového uživatele!");
-                return;
-            }
-
-            const uzivatele = JSON.parse(localStorage.getItem('uzivatele'));
-            
-            // Kontrola jestli login už neexistuje
-            if (uzivatele.find(u => u.login === login)) {
-                alert("Tento login už existuje, zvolte jiný.");
-                return;
-            }
-
-            uzivatele.push({ login: login, heslo: heslo, celeJmeno: jmeno, jeAdmin: false });
-            localStorage.setItem('uzivatele', JSON.stringify(uzivatele));
-            
-            alert("Uživatel " + jmeno + " úspěšně vytvořen!");
-            document.getElementById('novy-jmeno').value = '';
-            document.getElementById('novy-login').value = '';
-            document.getElementById('novy-heslo').value = '';
+        // --- 2. Jádro databáze (získávání z LocalStorage) ---
+        function ziskejData() {
+            return JSON.parse(localStorage.getItem('databaze') || "[]");
+        }
+        function ulozData(data) {
+            localStorage.setItem('databaze', JSON.stringify(data));
         }
 
-        // --- 4. Práce se záznamy (Excel) ---
-        function pridatZaznam() {
-            const datum = document.getElementById('zapis-datum').value;
-            const vozidlo = document.getElementById('zapis-vozidlo').value;
-            const zavada = document.getElementById('zapis-zavada').value;
-            const poznamka = document.getElementById('zapis-poznamka').value;
+        // --- 3. Přidání nového záznamu ---
+        function ulozitZapis() {
+            let datum = document.getElementById('novy-datum').value;
+            let vozidlo = document.getElementById('novy-vozidlo').value.trim();
+            let stav = document.getElementById('novy-stav').value;
+            let zavada = document.getElementById('novy-zavada').value.trim();
+            let poznamka = document.getElementById('novy-poznamka').value.trim();
+            let autor = localStorage.getItem('aktualniUzivatel');
 
-            if (!datum || !vozidlo || !zavada) {
-                alert("Datum, vozidlo a závada jsou povinná pole!");
+            if(!vozidlo || !zavada) {
+                alert("Vozidlo a Popis závady musí být vyplněny!");
                 return;
             }
 
-            let zaznamy = JSON.parse(localStorage.getItem('zaznamy'));
-            const novyZaznam = {
-                id: Date.now(), // unikátní ID podle času
+            let data = ziskejData();
+            // unshift přidává záznam nakonec (nahoru)
+            data.unshift({
+                id: Date.now(),
                 datum: datum,
                 vozidlo: vozidlo,
                 zavada: zavada,
-                poznamka: poznamka
-            };
+                poznamka: poznamka,
+                stav: stav,
+                autor: autor
+            });
 
-            zaznamy.unshift(novyZaznam); // Přidá na začátek seznamu
-            localStorage.setItem('zaznamy', JSON.stringify(zaznamy));
+            ulozData(data);
             
-            // Vyčištění formuláře po uložení
-            document.getElementById('zapis-vozidlo').value = '';
-            document.getElementById('zapis-zavada').value = '';
-            document.getElementById('zapis-poznamka').value = '';
+            // Vyčištění formuláře
+            document.getElementById('novy-vozidlo').value = '';
+            document.getElementById('novy-zavada').value = '';
+            document.getElementById('novy-poznamka').value = '';
             
-            vykresliTabulku();
+            obnovFiltrVozidel();
+            vykresli();
         }
 
-        function smazatZaznam(id) {
-            if(confirm("Opravdu chcete tento záznam smazat?")) {
-                let zaznamy = JSON.parse(localStorage.getItem('zaznamy'));
-                zaznamy = zaznamy.filter(z => z.id !== id);
-                localStorage.setItem('zaznamy', JSON.stringify(zaznamy));
-                vykresliTabulku();
+        // --- 4. Import z Excelu (SheetJS) ---
+        function nahratExcel() {
+            let fileInput = document.getElementById('excel-file');
+            if(!fileInput.files.length) {
+                alert("Nejdřív vyber ten Excel soubor!");
+                return;
+            }
+
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                let dataArray = new Uint8Array(e.target.result);
+                let workbook = XLSX.read(dataArray, {type: 'array'});
+                
+                let novaData = [];
+                
+                workbook.SheetNames.forEach(sheetName => {
+                    // Přeskakujeme zbytečné záložky
+                    if(sheetName === 'List1' || sheetName === 'Poznámky' || sheetName === 'vzor') return;
+                    
+                    let ws = workbook.Sheets[sheetName];
+                    let jsonData = XLSX.utils.sheet_to_json(ws, {raw: false}); 
+                    
+                    jsonData.forEach(row => {
+                        let d = row['DATUM'] || "";
+                        let z = row['POPIS ZÁVADY'] || "";
+                        let p = row['POZNÁMKY'] || "";
+
+                        // Přidá do databáze, pokud je tam aspoň nějaký text
+                        if(z.trim() !== "" || d.trim() !== "") {
+                            novaData.push({
+                                id: Date.now() + Math.random(),
+                                datum: d,
+                                vozidlo: sheetName.trim(),
+                                zavada: z,
+                                poznamka: p,
+                                stav: "Vyřešeno", // Staré závady z excelu označíme jako vyřešené
+                                autor: "-elektronici VM-" // Jak sis přál
+                            });
+                        }
+                    });
+                });
+                
+                let existujiciData = ziskejData();
+                ulozData(existujiciData.concat(novaData));
+                
+                alert("Paráda! Z Excelu se načetlo " + novaData.length + " starých záznamů.");
+                obnovFiltrVozidel();
+                vykresli();
+            };
+            reader.readAsArrayBuffer(fileInput.files[0]);
+        }
+
+        function smazatVse() {
+            if(confirm("POZOR! Opravdu chceš smazat úplně všechna data v aplikaci?")) {
+                localStorage.removeItem('databaze');
+                obnovFiltrVozidel();
+                vykresli();
             }
         }
 
-        function vykresliTabulku() {
-            const textHledani = document.getElementById('hledat').value.toLowerCase();
-            const zaznamy = JSON.parse(localStorage.getItem('zaznamy'));
-            const tbody = document.getElementById('tabulka-dat');
-            tbody.innerHTML = ''; // Vymaže starý obsah
+        // --- 5. Automatické generování seznamu vozidel ---
+        function obnovFiltrVozidel() {
+            let data = ziskejData();
+            let unikatni = new Set();
+            data.forEach(z => { if(z.vozidlo) unikatni.add(z.vozidlo); });
+            
+            let pole = Array.from(unikatni).sort();
+            
+            let filtr = document.getElementById('hledat-vozidlo');
+            let datalist = document.getElementById('seznam-vozidel');
+            
+            // Zachovat první prázdný <option>
+            filtr.innerHTML = '<option value="">Všechna vozidla</option>';
+            datalist.innerHTML = '';
 
-            zaznamy.forEach(z => {
-                // Vyhledávání filtruje podle vozidla, závady nebo poznámky
-                if (z.vozidlo.toLowerCase().includes(textHledani) || 
-                    z.zavada.toLowerCase().includes(textHledani) || 
-                    z.poznamka.toLowerCase().includes(textHledani)) {
+            pole.forEach(v => {
+                let opt1 = document.createElement('option');
+                opt1.value = v; opt1.text = v;
+                filtr.appendChild(opt1);
+                
+                let opt2 = document.createElement('option');
+                opt2.value = v;
+                datalist.appendChild(opt2);
+            });
+        }
+
+        // --- 6. Vykreslování a filtrování tabulky ---
+        function vykresli() {
+            let text = document.getElementById('hledat-text').value.toLowerCase();
+            let vozidlo = document.getElementById('hledat-vozidlo').value;
+            let stav = document.getElementById('hledat-stav').value;
+            
+            let data = ziskejData();
+            let tbody = document.getElementById('tabulka-dat');
+            tbody.innerHTML = ''; // Vymaže stávající řádky před novým vykreslením
+
+            data.forEach(z => {
+                // Filtrování textu projde závadu, poznámku i autora
+                let splnujeText = (z.zavada && z.zavada.toLowerCase().includes(text)) || 
+                                  (z.poznamka && z.poznamka.toLowerCase().includes(text)) ||
+                                  (z.autor && z.autor.toLowerCase().includes(text));
+                                  
+                let splnujeVozidlo = (vozidlo === "" || z.vozidlo === vozidlo);
+                let splnujeStav = (stav === "" || z.stav === stav);
+
+                if (splnujeText && splnujeVozidlo && splnujeStav) {
+                    let tr = document.createElement('tr');
                     
-                    const tr = document.createElement('tr');
+                    let stavBadge = z.stav === 'Aktivní' 
+                                    ? '<span class="badge-aktivni">Aktivní</span>' 
+                                    : '<span class="badge-vyreseno">Vyřešeno</span>';
+
                     tr.innerHTML = `
-                        <td>${z.datum}</td>
+                        <td style="white-space: nowrap;">${z.datum}</td>
                         <td><b>${z.vozidlo}</b></td>
                         <td>${z.zavada}</td>
                         <td>${z.poznamka}</td>
-                        <td><button class="btn-delete" onclick="smazatZaznam(${z.id})">Smazat</button></td>
+                        <td>${stavBadge}</td>
+                        <td style="font-style: italic; color: #555;">${z.autor}</td>
                     `;
                     tbody.appendChild(tr);
                 }
             });
         }
+
+        // Při načtení stránky provede kontrolu, jestli jsi přihlášený
+        window.onload = overPrihlaseni;
     </script>
 </body>
 </html>
